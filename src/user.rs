@@ -58,7 +58,7 @@ impl User {
         }
     }
 
-    pub fn reject_invitation(&mut self, id: UserID) -> bool {
+    pub fn remove_invitation(&mut self, id: UserID) -> bool {
         self.invitations.remove(&id)
     }
 }
@@ -80,8 +80,8 @@ mod tests {
         let requester_id = 1;
         let mut user = User::new(0);
         user.add_invitation(requester_id);
-        assert!(user.reject_invitation(requester_id));
-        assert!(!user.reject_invitation(requester_id));
+        assert!(user.remove_invitation(requester_id));
+        assert!(!user.remove_invitation(requester_id));
     }
 
     #[test]
