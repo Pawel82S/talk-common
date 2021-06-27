@@ -30,7 +30,7 @@ impl User {
     }
 
     pub fn add_friend(&mut self, id: UserID) -> bool {
-        if !self.has_friend(&id) {
+        if !self.has_friend(&id) && self.has_invitation(&id) {
             self.invitations.remove(&id);
             self.friends.insert(id)
         } else {
@@ -51,7 +51,7 @@ impl User {
     }
 
     pub fn add_invitation(&mut self, id: UserID) -> bool {
-        if !self.has_invitation(&id) {
+        if !self.has_invitation(&id) && !self.has_friend(&id) {
             self.invitations.insert(id)
         } else {
             false
@@ -73,12 +73,18 @@ mod tests {
         let mut user = User::new(0);
         assert!(user.add_invitation(requester_id));
         assert!(!user.add_invitation(requester_id));
+
+        // We cannot have same user on invitations and friends at the same time.
+        user.add_friend(requester_id);
+        assert!(!user.add_invitation(requester_id));
     }
 
     #[test]
     fn reject_invitation() {
         let requester_id = 1;
         let mut user = User::new(0);
+        assert!(!user.remove_invitation(requester_id));
+
         user.add_invitation(requester_id);
         assert!(user.remove_invitation(requester_id));
         assert!(!user.remove_invitation(requester_id));
@@ -88,6 +94,7 @@ mod tests {
     fn add_friend() {
         let requester_id = 1;
         let mut user = User::new(0);
+        assert!(!user.add_friend(requester_id));
         user.add_invitation(requester_id);
         assert!(user.add_friend(requester_id));
         assert!(!user.add_friend(requester_id));
@@ -97,7 +104,9 @@ mod tests {
     fn remove_friend() {
         let requester_id = 1;
         let mut user = User::new(0);
+        assert!(!user.remove_friend(requester_id));
         user.add_invitation(requester_id);
+        assert!(!user.remove_friend(requester_id));
         user.add_friend(requester_id);
         assert!(user.remove_friend(requester_id));
         assert!(!user.remove_friend(requester_id));
