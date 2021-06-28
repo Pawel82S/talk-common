@@ -2,14 +2,17 @@ use std::time::SystemTime;
 
 use crate::UserID;
 
+/// Structure representing message.
 pub struct Message {
     from: UserID,
     to: UserID,
+    // NOTE: In future we shuld have also Time Zone here.
     time: SystemTime,
     content: String,
 }
 
 impl Message {
+    /// Creates new message with current system time.
     pub fn new(content: String, from: UserID, to: UserID) -> Self {
         Self {
             from,
@@ -19,18 +22,22 @@ impl Message {
         }
     }
 
+    /// Returns sender ID.
     pub fn from(&self) -> &UserID {
         &self.from
     }
 
+    /// Returns reviever ID.
     pub fn to(&self) -> &UserID {
         &self.to
     }
 
+    /// Time when message was sent.
     pub fn time(&self) -> &SystemTime {
         &self.time
     }
 
+    /// Message contents.
     pub fn content(&self) -> &String {
         &self.content
     }
