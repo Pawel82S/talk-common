@@ -2,7 +2,8 @@ use std::time::SystemTime;
 
 use crate::UserID;
 
-/// Structure representing message.
+/// Represents message that can be sent between users.
+#[derive(Debug, PartialEq)]
 pub struct Message {
     from: UserID,
     to: UserID,

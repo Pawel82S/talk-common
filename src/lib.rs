@@ -1,72 +1,57 @@
+//! Defines data types and constants that are used by talk-client and talk-server. It
+//! doesn't do anything on it's own.
+
+#[warn(missing_docs)]
+mod comm;
 mod message;
 mod user;
 
+pub use comm::{Comm, CommError, CommParseError};
 pub use message::Message;
-pub use user::{User, UserID};
+use std::{convert::TryInto, mem};
+pub use user::User;
+
+// NOTE: I've created separate type in case we want to change it for something more advanced in the
+// future.
+pub type UserID = u64;
+
+/// Size in bytes of UserID
+pub const USER_ID_SIZE: usize = mem::size_of::<UserID>();
 
 /// Port used for communication between client and server.
 pub const COMM_PORT: u16 = 7878; // 7878 is Rust typed on phone keybord
 
-/// This is how client and server are communicating.
-pub enum Comm {
-    /// This message server will send to every newly connected and not logged client in case user
-    /// want to create new account this will be new ID reserved for time of creating new account.
-    Connected(UserID),
+/// Size of network buffer in bytes.
+pub const NET_BUFF_SIZE: usize = 512;
 
-    /// This message should be send by client every time it disconnects from server.
-    Disconnnected(UserID),
+/// Minimum user password length in characters, not bytes. Unicode characters can take more than
+/// one byte of memory.
+pub const MIN_PASS_CHAR_LEN: usize = 4;
 
-    /// This must be send every time client want to authenticate with server.
-    Login { id: UserID, password: String },
+/// Maximum user password length in bytes, not characters. Unicode characters can take more than
+/// one byte of memory. We are using bytes here instead of characters because we must know how many
+/// bytes it will take to save/load to/from file or transfer thru network.
+pub const MAX_PASS_BYTE_LEN: usize = 30;
 
-    /// Used every time when client or server should confirm operation without returning any data
-    /// back.
-    Accepted,
-
-    /// When server cannot comply with client request it will return Rejected enum.
-    Rejected(CommError),
-
-    /// This will be send to client after successfull authentication. Client should never send back
-    /// this to server. This will cause Rejected answer.
-    User(User),
-
-    /// Client can use it to change password on server. Server will return Accepted on success or
-    /// CommError::InvalidPassword otherwise.
-    ChangePassword {
-        new_password: String,
-        old_password: String,
-    },
-
-    /// Every time clients want to send message they must use this. All messages are send to server
-    /// and stored there until reciver will log in. Then server will send messagess one by one,
-    /// waiting every time for client Accepted message. If server or client wont Accept message
-    /// then message wasn't recieved.
-    Message(Message),
-
-    /// This is using when user is logged. Client should never send User struct to server.
-    AddInvitation(UserID),
-
-    /// This is using when user is logged. Client should never send User struct to server.
-    RemoveInvitation(UserID),
-
-    /// This is using when user is logged. Client should never send User struct to server.
-    AddFriend(UserID),
-
-    /// This is using when user is logged. Client should never send User struct to server.
-    RemoveFriend(UserID),
+/// Returns UserID from a slice of bytes.
+// TODO: This function should propably return Result in case of parsing error.
+pub fn parse_id_from_bytes(bytes: &[u8]) -> UserID {
+    u64::from_ne_bytes(bytes[..USER_ID_SIZE].try_into().unwrap())
 }
 
-/// Comunnication errors.
-pub enum CommError {
-    /// Used only during login procedure.
-    BadLoginData,
+/// Returns String from a slice of bytes or empty String if there was an error.
+// TODO: This function should propably return Result in case of parsing error.
+pub fn parse_string_from_bytes(bytes: &[u8]) -> String {
+    String::from_utf8(bytes.to_vec()).unwrap_or_default()
+}
 
-    /// Used when last communication with UserID only failed.
-    InvalidUserId,
+/// Writes bytes to buffer one by one, and returns number of bytes written.
+pub fn write_bytes_to_buffer(buffer: &mut [u8], bytes: &[u8]) -> usize {
+    let mut index = 0;
+    for byte in bytes {
+        buffer[index] = *byte;
+        index += 1;
+    }
 
-    /// Used only when changing password.
-    InvalidPassword,
-
-    /// Other invalid operation.
-    InvalidOperation,
+    index
 }

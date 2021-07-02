@@ -1,11 +1,8 @@
+use crate::{CommParseError, UserID, USER_ID_SIZE};
 use std::collections::HashSet;
 
-// NOTE: I've created separate type in case we want to change it for something more advanced in the
-// future.
-pub type UserID = u64;
-
-/// Structure representing user.
-#[derive(Debug)]
+/// Represents user.
+#[derive(Debug, PartialEq)]
 pub struct User {
     id: UserID,
     password: String,
@@ -15,6 +12,9 @@ pub struct User {
 }
 
 impl User {
+    // id = 8, password = MAX_PASS_BYTE_LEN, friends and invitations booth 1 byte each.
+    const MIN_BYTE_LEN: usize = USER_ID_SIZE + crate::MAX_PASS_BYTE_LEN + 2;
+
     /// Creates empty user.
     pub fn new(id: UserID, password: String) -> Self {
         Self {
@@ -22,6 +22,86 @@ impl User {
             password,
             friends: HashSet::new(),
             invitations: HashSet::new(),
+        }
+    }
+
+    pub fn try_into(&self, buffer: &mut [u8]) -> Result<(), CommParseError> {
+        if buffer.len() < User::MIN_BYTE_LEN {
+            Err(CommParseError::NotEnoughData)
+        } else {
+            let mut buffer_index =
+                crate::write_bytes_to_buffer(&mut buffer[..USER_ID_SIZE], &self.id.to_ne_bytes());
+
+            crate::write_bytes_to_buffer(&mut buffer[buffer_index..], self.password.as_bytes());
+            // It doesn't matter if password is shorter than maximum length. Rest space is
+            // reserved.
+            buffer_index += crate::MAX_PASS_BYTE_LEN;
+
+            // Now we have to write how many friends and invitations user have. Both are u8 (0-255)
+            // which should be more than enough for this simple communicator.
+            // TODO: Fix this algorithm to only count indexes that can fit in buffer. For now with
+            // just few contacts this isn't problem, but it can be.
+            buffer[buffer_index] = self.friends.len() as u8;
+            buffer_index += 1;
+            buffer[buffer_index] = self.invitations.len() as u8;
+            buffer_index += 1;
+
+            'id_write: for id_set in [self.friends.iter(), self.invitations.iter()] {
+                for id in id_set {
+                    if buffer.len() - buffer_index < USER_ID_SIZE {
+                        break 'id_write;
+                    }
+
+                    buffer_index += crate::write_bytes_to_buffer(
+                        &mut buffer[buffer_index..],
+                        &id.to_ne_bytes(),
+                    );
+                }
+            }
+
+            Ok(())
+        }
+    }
+
+    pub fn try_from(buffer: &[u8]) -> Result<Self, CommParseError> {
+        if buffer.len() < User::MIN_BYTE_LEN {
+            Err(CommParseError::NotEnoughData)
+        } else {
+            let id = crate::parse_id_from_bytes(&buffer[..USER_ID_SIZE]);
+            let mut buffer_index = USER_ID_SIZE + crate::MAX_PASS_BYTE_LEN;
+            let password = crate::parse_string_from_bytes(&buffer[USER_ID_SIZE..buffer_index]);
+            let friends_count = buffer[buffer_index] as usize;
+            buffer_index += 1;
+            let invitations_count = buffer[buffer_index] as usize;
+            buffer_index += 1;
+            let mut friends = HashSet::new();
+            let mut invitations = HashSet::new();
+
+            // TODO: Add checks for buffer boundry so we cannot read outside buffer and cause
+            // panic.
+            let mut is_parsing_friends = true;
+            for count in [friends_count, invitations_count] {
+                for _ in 0..count {
+                    let contact_id = crate::parse_id_from_bytes(
+                        &buffer[buffer_index..buffer_index + USER_ID_SIZE],
+                    );
+                    if is_parsing_friends {
+                        friends.insert(contact_id);
+                    } else {
+                        invitations.insert(contact_id);
+                    }
+                    buffer_index += USER_ID_SIZE;
+                }
+
+                is_parsing_friends = false;
+            }
+
+            Ok(User {
+                id,
+                password,
+                friends,
+                invitations,
+            })
         }
     }
 
@@ -36,8 +116,8 @@ impl User {
     }
 
     /// Changes user password from current to new if current is the same as 'self.password'.
-    pub fn change_password(&mut self, new_password: String, current_password: &String) -> bool {
-        if self.password == *current_password {
+    pub fn change_password(&mut self, new_password: String, current_password: &str) -> bool {
+        if self.password == current_password {
             self.password = new_password;
             true
         } else {
@@ -55,15 +135,9 @@ impl User {
         self.friends.contains(id)
     }
 
-    /// Adds user friend. Returns true if user have invitation from 'id' and isn't already friend
-    /// with it, otherwise returns false. In case of success 'id' is removed from invitation set.
+    /// Adds UserID to friends set. Returns true if id didn't existed and false otherwise.
     pub fn add_friend(&mut self, id: UserID) -> bool {
-        if !self.has_friend(&id) && self.has_invitation(&id) {
-            self.invitations.remove(&id);
-            self.friends.insert(id)
-        } else {
-            false
-        }
+        self.friends.insert(id)
     }
 
     /// Removes 'id' from friends set. Returns true if it was removed, false otherwise.
@@ -81,14 +155,9 @@ impl User {
         self.invitations.contains(id)
     }
 
-    /// Adds invitation. Returns true if user doesn't have invitation and isn't already friend with
-    /// it, otherwise returns false.
+    /// Adds UserID invitation set. Returns true if id didn't existed and false otherwise.
     pub fn add_invitation(&mut self, id: UserID) -> bool {
-        if !self.has_invitation(&id) && !self.has_friend(&id) {
-            self.invitations.insert(id)
-        } else {
-            false
-        }
+        self.invitations.insert(id)
     }
 
     /// Removes 'id' from invitation set. Returns true if it was removed, false otherwise.
@@ -100,51 +169,6 @@ impl User {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn add_invitation() {
-        let requester_id = 1;
-        let mut user = User::new(0, "abcd".to_string());
-        assert!(user.add_invitation(requester_id));
-        assert!(!user.add_invitation(requester_id));
-
-        // We cannot have same user on invitations and friends at the same time.
-        user.add_friend(requester_id);
-        assert!(!user.add_invitation(requester_id));
-    }
-
-    #[test]
-    fn reject_invitation() {
-        let requester_id = 1;
-        let mut user = User::new(0, "abcd".to_string());
-        assert!(!user.remove_invitation(requester_id));
-
-        user.add_invitation(requester_id);
-        assert!(user.remove_invitation(requester_id));
-        assert!(!user.remove_invitation(requester_id));
-    }
-
-    #[test]
-    fn add_friend() {
-        let requester_id = 1;
-        let mut user = User::new(0, "abcd".to_string());
-        assert!(!user.add_friend(requester_id));
-        user.add_invitation(requester_id);
-        assert!(user.add_friend(requester_id));
-        assert!(!user.add_friend(requester_id));
-    }
-
-    #[test]
-    fn remove_friend() {
-        let requester_id = 1;
-        let mut user = User::new(0, "abcd".to_string());
-        assert!(!user.remove_friend(requester_id));
-        user.add_invitation(requester_id);
-        assert!(!user.remove_friend(requester_id));
-        user.add_friend(requester_id);
-        assert!(user.remove_friend(requester_id));
-        assert!(!user.remove_friend(requester_id));
-    }
 
     #[test]
     fn change_password() {
