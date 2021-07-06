@@ -8,7 +8,7 @@ mod user;
 
 pub use comm::{Comm, CommError, CommParseError};
 pub use message::Message;
-use std::{convert::TryInto, mem};
+use std::{convert::TryInto, mem, str};
 pub use user::User;
 
 // NOTE: I've created separate type in case we want to change it for something more advanced in the
@@ -41,8 +41,8 @@ pub fn parse_id_from_bytes(bytes: &[u8]) -> UserID {
 
 /// Returns String from a slice of bytes or empty String if there was an error.
 // TODO: This function should propably return Result in case of parsing error.
-pub fn parse_string_from_bytes(bytes: &[u8]) -> String {
-    String::from_utf8(bytes.to_vec()).unwrap_or_default()
+pub fn parse_string_from_bytes(bytes: &[u8]) -> &str {
+    str::from_utf8(bytes.split(|&c| c == 0).next().unwrap_or_default()).unwrap_or_default()
 }
 
 /// Writes bytes to buffer one by one, and returns number of bytes written.

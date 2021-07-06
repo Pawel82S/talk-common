@@ -25,6 +25,8 @@ impl User {
         }
     }
 
+    /// Tries to parse user data to u8 slice. It returns `()` on success and `CommParseError` on
+    /// any error.
     pub fn try_into(&self, buffer: &mut [u8]) -> Result<(), CommParseError> {
         if buffer.len() < User::MIN_BYTE_LEN {
             Err(CommParseError::NotEnoughData)
@@ -63,13 +65,16 @@ impl User {
         }
     }
 
+    /// Tries to parse user data from u8 slice. It returns `Self` on success and `CommParseError` on
+    /// any error.
     pub fn try_from(buffer: &[u8]) -> Result<Self, CommParseError> {
         if buffer.len() < User::MIN_BYTE_LEN {
             Err(CommParseError::NotEnoughData)
         } else {
             let id = crate::parse_id_from_bytes(&buffer[..USER_ID_SIZE]);
             let mut buffer_index = USER_ID_SIZE + crate::MAX_PASS_BYTE_LEN;
-            let password = crate::parse_string_from_bytes(&buffer[USER_ID_SIZE..buffer_index]);
+            let password =
+                crate::parse_string_from_bytes(&buffer[USER_ID_SIZE..buffer_index]).to_string();
             let friends_count = buffer[buffer_index] as usize;
             buffer_index += 1;
             let invitations_count = buffer[buffer_index] as usize;
@@ -183,5 +188,20 @@ mod tests {
         // When we provide proper old password then we can change it to new one
         assert!(user.change_password(new_password, &original_password));
         assert_ne!(user.password(), &original_password);
+    }
+
+    #[test]
+    fn send_and_recive() {
+        let mut s = User::new(1, "abcd".to_string());
+        s.add_friend(2);
+        s.add_friend(3);
+        s.add_invitation(10);
+        s.add_invitation(11);
+
+        let mut buffer = [0u8; crate::NET_BUFF_SIZE];
+        s.try_into(&mut buffer).unwrap();
+        let r = User::try_from(&buffer).unwrap();
+
+        assert_eq!(s, r);
     }
 }
