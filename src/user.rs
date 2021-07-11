@@ -1,4 +1,7 @@
-use crate::{CommParseError, UserID, USER_ID_SIZE};
+use crate::{
+    serialize::{Serialize, SerializeError},
+    UserID, USER_ID_SIZE,
+};
 use std::collections::HashSet;
 
 /// Represents user.
@@ -22,91 +25,6 @@ impl User {
             password,
             friends: HashSet::new(),
             invitations: HashSet::new(),
-        }
-    }
-
-    /// Tries to parse user data to u8 slice. It returns `()` on success and `CommParseError` on
-    /// any error.
-    pub fn try_into(&self, buffer: &mut [u8]) -> Result<(), CommParseError> {
-        if buffer.len() < User::MIN_BYTE_LEN {
-            Err(CommParseError::NotEnoughData)
-        } else {
-            let mut buffer_index =
-                crate::write_bytes_to_buffer(&mut buffer[..USER_ID_SIZE], &self.id.to_ne_bytes());
-
-            crate::write_bytes_to_buffer(&mut buffer[buffer_index..], self.password.as_bytes());
-            // It doesn't matter if password is shorter than maximum length. Rest space is
-            // reserved.
-            buffer_index += crate::MAX_PASS_BYTE_LEN;
-
-            // Now we have to write how many friends and invitations user have. Both are u8 (0-255)
-            // which should be more than enough for this simple communicator.
-            // TODO: Fix this algorithm to only count indexes that can fit in buffer. For now with
-            // just few contacts this isn't problem, but it can be.
-            buffer[buffer_index] = self.friends.len() as u8;
-            buffer_index += 1;
-            buffer[buffer_index] = self.invitations.len() as u8;
-            buffer_index += 1;
-
-            'id_write: for id_set in [self.friends.iter(), self.invitations.iter()] {
-                for id in id_set {
-                    if buffer.len() - buffer_index < USER_ID_SIZE {
-                        break 'id_write;
-                    }
-
-                    buffer_index += crate::write_bytes_to_buffer(
-                        &mut buffer[buffer_index..],
-                        &id.to_ne_bytes(),
-                    );
-                }
-            }
-
-            Ok(())
-        }
-    }
-
-    /// Tries to parse user data from u8 slice. It returns `Self` on success and `CommParseError` on
-    /// any error.
-    pub fn try_from(buffer: &[u8]) -> Result<Self, CommParseError> {
-        if buffer.len() < User::MIN_BYTE_LEN {
-            Err(CommParseError::NotEnoughData)
-        } else {
-            let id = crate::parse_id_from_bytes(&buffer[..USER_ID_SIZE]);
-            let mut buffer_index = USER_ID_SIZE + crate::MAX_PASS_BYTE_LEN;
-            let password =
-                crate::parse_string_from_bytes(&buffer[USER_ID_SIZE..buffer_index]).to_string();
-            let friends_count = buffer[buffer_index] as usize;
-            buffer_index += 1;
-            let invitations_count = buffer[buffer_index] as usize;
-            buffer_index += 1;
-            let mut friends = HashSet::new();
-            let mut invitations = HashSet::new();
-
-            // TODO: Add checks for buffer boundry so we cannot read outside buffer and cause
-            // panic.
-            let mut is_parsing_friends = true;
-            for count in [friends_count, invitations_count] {
-                for _ in 0..count {
-                    let contact_id = crate::parse_id_from_bytes(
-                        &buffer[buffer_index..buffer_index + USER_ID_SIZE],
-                    );
-                    if is_parsing_friends {
-                        friends.insert(contact_id);
-                    } else {
-                        invitations.insert(contact_id);
-                    }
-                    buffer_index += USER_ID_SIZE;
-                }
-
-                is_parsing_friends = false;
-            }
-
-            Ok(User {
-                id,
-                password,
-                friends,
-                invitations,
-            })
         }
     }
 
@@ -171,6 +89,95 @@ impl User {
     }
 }
 
+impl Serialize for User {
+    type Item = User;
+
+    /// Tries to parse user data to u8 slice. It returns `()` on success and `CommParseError` on
+    /// any error.
+    fn serialize(&self, buffer: &mut [u8]) -> Result<(), SerializeError> {
+        if buffer.len() < User::MIN_BYTE_LEN {
+            Err(SerializeError::NotEnoughData)
+        } else {
+            let mut buffer_index =
+                crate::write_bytes_to_buffer(&mut buffer[..USER_ID_SIZE], &self.id.to_ne_bytes());
+
+            crate::write_bytes_to_buffer(&mut buffer[buffer_index..], self.password.as_bytes());
+            // It doesn't matter if password is shorter than maximum length. Rest space is
+            // reserved.
+            buffer_index += crate::MAX_PASS_BYTE_LEN;
+
+            // Now we have to write how many friends and invitations user have. Both are u8 (0-255)
+            // which should be more than enough for this simple communicator.
+            // TODO: Fix this algorithm to only count indexes that can fit in buffer. For now with
+            // just few contacts this isn't problem, but it can be.
+            buffer[buffer_index] = self.friends.len() as u8;
+            buffer_index += 1;
+            buffer[buffer_index] = self.invitations.len() as u8;
+            buffer_index += 1;
+
+            'id_write: for id_set in [self.friends.iter(), self.invitations.iter()] {
+                for id in id_set {
+                    if buffer.len() - buffer_index < USER_ID_SIZE {
+                        break 'id_write;
+                    }
+
+                    buffer_index += crate::write_bytes_to_buffer(
+                        &mut buffer[buffer_index..],
+                        &id.to_ne_bytes(),
+                    );
+                }
+            }
+
+            Ok(())
+        }
+    }
+
+    /// Tries to parse user data from u8 slice. It returns `Self` on success and `CommParseError` on
+    /// any error.
+    fn deserialize(buffer: &[u8]) -> Result<Self::Item, SerializeError> {
+        if buffer.len() < User::MIN_BYTE_LEN {
+            Err(SerializeError::NotEnoughData)
+        } else {
+            let id = crate::parse_id_from_bytes(&buffer[..USER_ID_SIZE]);
+            let mut buffer_index = USER_ID_SIZE + crate::MAX_PASS_BYTE_LEN;
+            let password =
+                crate::parse_string_from_bytes(&buffer[USER_ID_SIZE..buffer_index]).to_string();
+            let friends_count = buffer[buffer_index] as usize;
+            buffer_index += 1;
+            let invitations_count = buffer[buffer_index] as usize;
+            buffer_index += 1;
+            let mut friends = HashSet::new();
+            let mut invitations = HashSet::new();
+
+            // TODO: Add checks for buffer boundry so we cannot read outside buffer and cause
+            // panic.
+            let mut is_parsing_friends = true;
+            for count in [friends_count, invitations_count] {
+                for _ in 0..count {
+                    let contact_id = crate::parse_id_from_bytes(
+                        &buffer[buffer_index..buffer_index + USER_ID_SIZE],
+                    );
+                    if is_parsing_friends {
+                        friends.insert(contact_id);
+                    } else {
+                        invitations.insert(contact_id);
+                    }
+                    buffer_index += USER_ID_SIZE;
+                }
+
+                is_parsing_friends = false;
+            }
+
+            Ok(User {
+                id,
+                password,
+                friends,
+                invitations,
+            })
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -199,8 +206,8 @@ mod tests {
         s.add_invitation(11);
 
         let mut buffer = [0u8; crate::NET_BUFF_SIZE];
-        s.try_into(&mut buffer).unwrap();
-        let r = User::try_from(&buffer).unwrap();
+        s.serialize(&mut buffer).unwrap();
+        let r = User::deserialize(&buffer).unwrap();
 
         assert_eq!(s, r);
     }

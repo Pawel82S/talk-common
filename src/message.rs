@@ -1,6 +1,9 @@
 use std::time::SystemTime;
 
-use crate::UserID;
+use crate::{
+    serialize::{Serialize, SerializeError},
+    UserID,
+};
 
 /// Represents message that can be sent between users.
 #[derive(Debug, PartialEq)]
@@ -28,7 +31,7 @@ impl Message {
         &self.from
     }
 
-    /// Returns reviever ID.
+    /// Returns reciever ID.
     pub fn to(&self) -> &UserID {
         &self.to
     }
@@ -41,6 +44,18 @@ impl Message {
     /// Message contents.
     pub fn content(&self) -> &String {
         &self.content
+    }
+}
+
+impl Serialize for Message {
+    type Item = Message;
+
+    fn serialize(&self, buffer: &mut [u8]) -> Result<(), SerializeError> {
+        unimplemented!()
+    }
+
+    fn deserialize(buffer: &[u8]) -> Result<Self::Item, SerializeError> {
+        unimplemented!()
     }
 }
 

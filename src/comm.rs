@@ -1,11 +1,12 @@
 mod comm_error;
-mod comm_parse_error;
 
-use crate::{Message, User, UserID, MAX_PASS_BYTE_LEN};
+use crate::{
+    serialize::{Serialize, SerializeError},
+    Message, User, UserID, MAX_PASS_BYTE_LEN,
+};
 pub use comm_error::CommError;
-pub use comm_parse_error::CommParseError;
 
-/// This is how client and server are communicating.
+/// Communication inteterface between `talk-client` and `talk-server`.
 #[derive(Debug, PartialEq)]
 pub enum Comm {
     /// This message server will send to every newly connected and not logged client in case user
@@ -62,17 +63,16 @@ pub enum Comm {
     RemoveFriend(UserID),
 }
 
-impl Comm {
-    /// Writes Comm to `buffer`. Returns `()` on success or `Err(CommParseError)` otherwise.
-    pub fn try_into(&self, buffer: &mut [u8]) -> Result<(), CommParseError> {
-        //match *self {
-        //Comm::Connected(id) => (),
-        //}
-        Ok(())
+impl Serialize for Comm {
+    type Item = Comm;
+
+    /// Writes Comm to `buffer`. Returns `()` on success or `Err(SerializeError)` otherwise.
+    fn serialize(&self, buffer: &mut [u8]) -> Result<(), SerializeError> {
+        unimplemented!()
     }
 
-    /// Reads Comm from `buffer`. Returns `Self` on success or `Err(CommParseError)` otherwise.
-    pub fn try_from(buffer: &[u8]) -> Result<Self, CommParseError> {
+    /// Reads Comm from `buffer`. Returns `Self` on success or `Err(SerializeError)` otherwise.
+    fn deserialize(buffer: &[u8]) -> Result<Self::Item, SerializeError> {
         match buffer[0] {
             // Comm::Connected
             0 => {
@@ -89,7 +89,8 @@ impl Comm {
             // Comm::Login
             2 => {
                 let id = crate::parse_id_from_bytes(&buffer[1..9]);
-                let password = crate::parse_string_from_bytes(&buffer[9..9 + MAX_PASS_BYTE_LEN]);
+                let password =
+                    crate::parse_string_from_bytes(&buffer[9..9 + MAX_PASS_BYTE_LEN]).to_string();
                 Ok(Comm::Login { id, password })
             }
 
@@ -97,17 +98,20 @@ impl Comm {
             3 => Ok(Comm::Accepted),
 
             // Comm::Rejected
-            4 => Ok(Comm::Rejected(CommError::try_from(&buffer[1..]))),
+            4 => Ok(Comm::Rejected(
+                CommError::deserialize(&buffer[1..]).unwrap(),
+            )),
 
             // Comm::User
-            5 => unimplemented!(),
+            5 => Ok(Comm::User(User::deserialize(&buffer[1..]).unwrap())),
 
             // Comm::ChangePassword
             6 => {
                 let index = 1 + MAX_PASS_BYTE_LEN;
-                let new_password = crate::parse_string_from_bytes(&buffer[1..index]);
+                let new_password = crate::parse_string_from_bytes(&buffer[1..index]).to_string();
                 let old_password =
-                    crate::parse_string_from_bytes(&buffer[index..index + MAX_PASS_BYTE_LEN]);
+                    crate::parse_string_from_bytes(&buffer[index..index + MAX_PASS_BYTE_LEN])
+                        .to_string();
                 Ok(Comm::ChangePassword {
                     new_password,
                     old_password,
@@ -142,7 +146,7 @@ impl Comm {
             }
 
             // Unknown Comm signature
-            sig => Err(CommParseError::UnknownSignature(sig)),
+            sig => Err(SerializeError::UnknownSignature(sig)),
         }
     }
 }
@@ -154,14 +158,14 @@ mod tests {
     #[test]
     fn comm_connect() {
         let buffer = [0u8, 1, 0, 0, 0, 0, 0, 0, 0];
-        assert_eq!(Comm::try_from(&buffer).unwrap(), Comm::Connected(1));
-        assert_ne!(Comm::try_from(&buffer).unwrap(), Comm::Connected(2));
+        assert_eq!(Comm::deserialize(&buffer).unwrap(), Comm::Connected(1));
+        assert_ne!(Comm::deserialize(&buffer).unwrap(), Comm::Connected(2));
     }
 
     #[test]
     fn comm_disconnected() {
         let buffer = [1u8, 1, 0, 0, 0, 0, 0, 0, 0];
-        assert_eq!(Comm::try_from(&buffer).unwrap(), Comm::Disconnected(1));
-        assert_ne!(Comm::try_from(&buffer).unwrap(), Comm::Disconnected(2));
+        assert_eq!(Comm::deserialize(&buffer).unwrap(), Comm::Disconnected(1));
+        assert_ne!(Comm::deserialize(&buffer).unwrap(), Comm::Disconnected(2));
     }
 }

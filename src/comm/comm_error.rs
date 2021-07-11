@@ -1,3 +1,5 @@
+use crate::serialize::{Serialize, SerializeError};
+
 /// Comunnication errors.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CommError {
@@ -17,20 +19,22 @@ pub enum CommError {
     Unknown, // This should be last option
 }
 
-impl CommError {
+impl Serialize for CommError {
+    type Item = CommError;
+
     /// Converts CommError to `u8` number and writes it to `buffer[0]`.
-    pub fn try_into(&self, buffer: &mut [u8]) {
-        buffer[0] = *self as u8;
+    fn serialize(&self, buffer: &mut [u8]) -> Result<(), SerializeError> {
+        Ok(buffer[0] = *self as u8)
     }
 
     /// Reads `buffer[0]` and creates CommError object from it.
-    pub fn try_from(buffer: &[u8]) -> Self {
+    fn deserialize(buffer: &[u8]) -> Result<Self::Item, SerializeError> {
         match buffer[0] {
-            0 => CommError::BadLoginData,
-            1 => CommError::InvalidUserId,
-            2 => CommError::InvalidPassword,
-            3 => CommError::InvalidOperation,
-            _ => CommError::Unknown,
+            0 => Ok(CommError::BadLoginData),
+            1 => Ok(CommError::InvalidUserId),
+            2 => Ok(CommError::InvalidPassword),
+            3 => Ok(CommError::InvalidOperation),
+            sig => Err(SerializeError::UnknownSignature(sig)),
         }
     }
 }
@@ -43,8 +47,8 @@ mod tests {
     fn bad_login_data() {
         let mut buffer = [0xFF];
         let e1 = CommError::BadLoginData;
-        e1.try_into(&mut buffer);
-        let e2 = CommError::try_from(&buffer);
+        e1.serialize(&mut buffer);
+        let e2 = CommError::deserialize(&buffer).unwrap();
         assert_eq!(e1, e2);
     }
 
@@ -52,8 +56,8 @@ mod tests {
     fn invalid_user_id() {
         let mut buffer = [0xFF];
         let e1 = CommError::InvalidUserId;
-        e1.try_into(&mut buffer);
-        let e2 = CommError::try_from(&buffer);
+        e1.serialize(&mut buffer);
+        let e2 = CommError::deserialize(&buffer).unwrap();
         assert_eq!(e1, e2);
     }
 
@@ -61,8 +65,8 @@ mod tests {
     fn invalid_password() {
         let mut buffer = [0xFF];
         let e1 = CommError::InvalidPassword;
-        e1.try_into(&mut buffer);
-        let e2 = CommError::try_from(&buffer);
+        e1.serialize(&mut buffer);
+        let e2 = CommError::deserialize(&buffer).unwrap();
         assert_eq!(e1, e2);
     }
 
@@ -70,15 +74,15 @@ mod tests {
     fn invalid_operation() {
         let mut buffer = [0xFF];
         let e1 = CommError::InvalidOperation;
-        e1.try_into(&mut buffer);
-        let e2 = CommError::try_from(&buffer);
+        e1.serialize(&mut buffer);
+        let e2 = CommError::deserialize(&buffer).unwrap();
         assert_eq!(e1, e2);
     }
 
     #[test]
     fn unknown() {
         let buffer = [0xFF];
-        let e1 = CommError::try_from(&buffer);
-        assert_eq!(e1, CommError::Unknown);
+        let e1 = CommError::deserialize(&buffer).unwrap();
+        assert_eq!(e1, SerializeError::UnknownSignature(0xFF));
     }
 }

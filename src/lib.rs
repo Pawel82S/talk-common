@@ -4,9 +4,10 @@
 #[warn(missing_docs)]
 mod comm;
 mod message;
+mod serialize;
 mod user;
 
-pub use comm::{Comm, CommError, CommParseError};
+pub use comm::{Comm, CommError};
 pub use message::Message;
 use std::{convert::TryInto, mem, str};
 pub use user::User;
