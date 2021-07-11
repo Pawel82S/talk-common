@@ -92,7 +92,7 @@ impl User {
 impl Serialize for User {
     type Item = User;
 
-    /// Tries to parse user data to u8 slice. It returns `()` on success and `CommParseError` on
+    /// Tries to parse user data to u8 slice. It returns `()` on success and `SerializeError` on
     /// any error.
     fn serialize(&self, buffer: &mut [u8]) -> Result<(), SerializeError> {
         if buffer.len() < User::MIN_BYTE_LEN {
@@ -132,7 +132,7 @@ impl Serialize for User {
         }
     }
 
-    /// Tries to parse user data from u8 slice. It returns `Self` on success and `CommParseError` on
+    /// Tries to parse user data from u8 slice. It returns `Self` on success and `SerializeError` on
     /// any error.
     fn deserialize(buffer: &[u8]) -> Result<Self::Item, SerializeError> {
         if buffer.len() < User::MIN_BYTE_LEN {
