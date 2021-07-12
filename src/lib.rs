@@ -9,6 +9,7 @@ mod user;
 
 pub use comm::{Comm, CommError};
 pub use message::Message;
+pub use serialize::{Serialize, SerializeError};
 use std::{convert::TryInto, mem, str};
 pub use user::User;
 

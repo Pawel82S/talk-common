@@ -2,7 +2,11 @@
 pub trait Serialize {
     type Item;
 
+    /// Serializing object to u8 buffer. Returns empty tuple (nothing) on success or
+    /// `SerializeError`.
     fn serialize(&self, buffer: &mut [u8]) -> Result<(), SerializeError>;
+
+    /// Deserializing object from u8 buffer. Returns `Self` on success or `SerializeError`.
     fn deserialize(buffer: &[u8]) -> Result<Self::Item, SerializeError>;
 }
 
