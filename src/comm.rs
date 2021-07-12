@@ -45,21 +45,26 @@ pub enum Comm {
     },
 
     /// Every time clients want to send message they must use this. All messages are send to server
-    /// and stored there until reciver will log in. Then server will send messagess one by one,
-    /// waiting every time for client Accepted message. If server or client wont Accept message
-    /// then message wasn't recieved.
+    /// and stored there until reciver will log in. Then server will send messagess one by one
+    /// (starting from oldest), waiting every time for client to send `Comm::Accept` message. If
+    /// server or client wont `Comm::Accept` message then message wasn't recieved and will remain
+    /// at server (and should remain at client) to send another time.
     Message(Message),
 
-    /// This is using when user is logged. Client should never send User struct to server.
+    /// This is used user is logged. Client should never send `User` struct to server or it will be
+    /// recjeted.
     AddInvitation(UserID),
 
-    /// This is using when user is logged. Client should never send User struct to server.
+    /// This is used user is logged. Client should never send `User` struct to server or it will be
+    /// recjeted.
     RemoveInvitation(UserID),
 
-    /// This is using when user is logged. Client should never send User struct to server.
+    /// This is used when user is logged. Client should never send `User` struct to server or it
+    /// will be recjeted.
     AddFriend(UserID),
 
-    /// This is using when user is logged. Client should never send User struct to server.
+    /// This is used when user is logged. Client should never send `User` struct to server or it
+    /// will be recjeted.
     RemoveFriend(UserID),
 }
 
