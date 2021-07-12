@@ -51,12 +51,12 @@ pub enum Comm {
     /// at server (and should remain at client) to send another time.
     Message(Message),
 
-    /// This is used user is logged. Client should never send `User` struct to server or it will be
-    /// recjeted.
+    /// This is used when user is logged. Client should never send `User` struct to server or it
+    /// will be recjeted.
     AddInvitation(UserID),
 
-    /// This is used user is logged. Client should never send `User` struct to server or it will be
-    /// recjeted.
+    /// This is used when user is logged. Client should never send `User` struct to server or it
+    /// will be recjeted.
     RemoveInvitation(UserID),
 
     /// This is used when user is logged. Client should never send `User` struct to server or it

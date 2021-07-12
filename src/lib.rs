@@ -1,4 +1,4 @@
-//! Defines data types and constants that are used by talk-client and talk-server. It
+//! Defines data types and constants that are used by `talk-client` and `talk-server` It
 //! doesn't do anything on it's own.
 
 #[warn(missing_docs)]
