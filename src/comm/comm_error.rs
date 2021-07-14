@@ -47,7 +47,7 @@ mod tests {
     fn bad_login_data() {
         let mut buffer = [0xFF];
         let e1 = CommError::BadLoginData;
-        e1.serialize(&mut buffer);
+        e1.serialize(&mut buffer).unwrap();
         let e2 = CommError::deserialize(&buffer).unwrap();
         assert_eq!(e1, e2);
     }
@@ -56,7 +56,7 @@ mod tests {
     fn invalid_user_id() {
         let mut buffer = [0xFF];
         let e1 = CommError::InvalidUserId;
-        e1.serialize(&mut buffer);
+        e1.serialize(&mut buffer).unwrap();
         let e2 = CommError::deserialize(&buffer).unwrap();
         assert_eq!(e1, e2);
     }
@@ -65,7 +65,7 @@ mod tests {
     fn invalid_password() {
         let mut buffer = [0xFF];
         let e1 = CommError::InvalidPassword;
-        e1.serialize(&mut buffer);
+        e1.serialize(&mut buffer).unwrap();
         let e2 = CommError::deserialize(&buffer).unwrap();
         assert_eq!(e1, e2);
     }
@@ -74,15 +74,17 @@ mod tests {
     fn invalid_operation() {
         let mut buffer = [0xFF];
         let e1 = CommError::InvalidOperation;
-        e1.serialize(&mut buffer);
+        e1.serialize(&mut buffer).unwrap();
         let e2 = CommError::deserialize(&buffer).unwrap();
         assert_eq!(e1, e2);
     }
 
     #[test]
-    fn unknown() {
+    fn unknown_signature() {
         let buffer = [0xFF];
-        let e1 = CommError::deserialize(&buffer).unwrap();
-        assert_eq!(e1, SerializeError::UnknownSignature(0xFF));
+        match CommError::deserialize(&buffer) {
+            Ok(_) => panic!(),
+            Err(e) => assert_eq!(e, SerializeError::UnknownSignature(0xFF)),
+        }
     }
 }

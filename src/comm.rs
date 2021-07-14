@@ -73,7 +73,38 @@ impl Serialize for Comm {
 
     /// Writes Comm to `buffer`. Returns `()` on success or `Err(SerializeError)` otherwise.
     fn serialize(&self, buffer: &mut [u8]) -> Result<(), SerializeError> {
-        unimplemented!()
+        match self {
+            Comm::Connected(id) => {
+                buffer[0] = 0;
+            }
+
+            Comm::Disconnected(id) => unimplemented!(),
+
+            Comm::Login { id, password } => unimplemented!(),
+
+            Comm::Accepted => unimplemented!(),
+
+            Comm::Rejected(err) => unimplemented!(),
+
+            Comm::User(user) => unimplemented!(),
+
+            Comm::ChangePassword {
+                new_password,
+                old_password,
+            } => unimplemented!(),
+
+            Comm::Message(msg) => unimplemented!(),
+
+            Comm::AddInvitation(id) => unimplemented!(),
+
+            Comm::RemoveInvitation(id) => unimplemented!(),
+
+            Comm::AddFriend(id) => unimplemented!(),
+
+            Comm::RemoveFriend(id) => unimplemented!(),
+        }
+
+        Ok(())
     }
 
     /// Reads Comm from `buffer`. Returns `Self` on success or `Err(SerializeError)` otherwise.

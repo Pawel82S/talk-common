@@ -12,7 +12,7 @@ pub trait Serialize {
 
 /// This type describes errors that can occur when data is serialized/deserialized. They are not
 /// transmitted between client and server.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum SerializeError {
     /// It occurs at reading when some unexpected data has been read.
     UnknownSignature(u8),
