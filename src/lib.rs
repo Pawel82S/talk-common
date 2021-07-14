@@ -35,6 +35,9 @@ pub const MIN_PASS_CHAR_LEN: usize = 4;
 /// bytes it will take to save/load to/from file or transfer thru network.
 pub const MAX_PASS_BYTE_LEN: usize = 30;
 
+/// Maximum message length in bytes, not characters.
+pub const MAX_MESSAGE_BYTE_LEN: usize = 128;
+
 /// Returns UserID from a slice of bytes.
 ///
 /// # Panics

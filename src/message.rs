@@ -51,11 +51,38 @@ impl Serialize for Message {
     type Item = Message;
 
     fn serialize(&self, buffer: &mut [u8]) -> Result<(), SerializeError> {
-        unimplemented!()
+        // TODO: Add buffer size checks and return appropirate SerializeError instead of panic from
+        // accessing index out of buffer slice. This is done this way for now as a MVP.
+        let mut index = crate::write_bytes_to_buffer(
+            &mut buffer[..crate::USER_ID_SIZE],
+            &self.from.to_ne_bytes(),
+        );
+        index += crate::write_bytes_to_buffer(&mut buffer[index..], &self.to.to_ne_bytes());
+
+        // TODO: Serialize SystemTime here.
+
+        crate::write_bytes_to_buffer(&mut buffer[index..], self.content.as_bytes());
+
+        Ok(())
     }
 
     fn deserialize(buffer: &[u8]) -> Result<Self::Item, SerializeError> {
-        unimplemented!()
+        // TODO: Add buffer size checks and return appropirate SerializeError instead of panic from
+        // accessing index out of buffer slice. This is done this way for now as a MVP.
+        let from = crate::parse_id_from_bytes(&buffer[..crate::USER_ID_SIZE]);
+        let index = 2 * crate::USER_ID_SIZE;
+        let to = crate::parse_id_from_bytes(&buffer[crate::USER_ID_SIZE..index]);
+
+        // TODO: Deserialize SystemTime here.
+
+        let content = crate::parse_string_from_bytes(&buffer[index..]).to_string();
+
+        Ok(Self {
+            from,
+            to,
+            time: SystemTime::now(),
+            content,
+        })
     }
 }
 
