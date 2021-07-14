@@ -71,43 +71,87 @@ pub enum Comm {
 impl Serialize for Comm {
     type Item = Comm;
 
-    /// Writes Comm to `buffer`. Returns `()` on success or `Err(SerializeError)` otherwise.
+    /// Writes Comm to `buffer`. Returns `()` on success or `SerializeError` otherwise.
     fn serialize(&self, buffer: &mut [u8]) -> Result<(), SerializeError> {
+        // TODO: Add buffer size checks to each condition so we won't panic here but return proper
+        // SerializeError. For now it will be just MVP that panic when we try to write too much.
         match self {
             Comm::Connected(id) => {
                 buffer[0] = 0;
+                crate::write_bytes_to_buffer(&mut buffer[1..], &id.to_ne_bytes());
             }
 
-            Comm::Disconnected(id) => unimplemented!(),
+            Comm::Disconnected(id) => {
+                buffer[0] = 1;
+                crate::write_bytes_to_buffer(&mut buffer[1..], &id.to_ne_bytes());
+            }
 
-            Comm::Login { id, password } => unimplemented!(),
+            Comm::Login { id, password } => {
+                buffer[0] = 2;
+                let mut index = 1;
+                index += crate::write_bytes_to_buffer(&mut buffer[index..], &id.to_ne_bytes());
+                crate::write_bytes_to_buffer(&mut buffer[index..], password.as_bytes());
+            }
 
-            Comm::Accepted => unimplemented!(),
+            Comm::Accepted => buffer[0] = 3,
 
-            Comm::Rejected(err) => unimplemented!(),
+            Comm::Rejected(err) => {
+                buffer[0] = 4;
+                err.serialize(&mut buffer[1..])?
+            }
 
-            Comm::User(user) => unimplemented!(),
+            Comm::User(user) => {
+                buffer[0] = 5;
+                user.serialize(&mut buffer[1..])?
+            }
 
             Comm::ChangePassword {
                 new_password,
                 old_password,
-            } => unimplemented!(),
+            } => {
+                buffer[0] = 6;
+                let np = new_password.as_bytes();
+                let op = old_password.as_bytes();
+                let index = 1 + crate::MAX_PASS_BYTE_LEN;
 
-            Comm::Message(msg) => unimplemented!(),
+                crate::write_bytes_to_buffer(&mut buffer[1..index], np);
+                // Each password must have reserved exactly the same number of bytes.
+                crate::write_bytes_to_buffer(
+                    &mut buffer[index..index + crate::MAX_PASS_BYTE_LEN],
+                    op,
+                );
+            }
 
-            Comm::AddInvitation(id) => unimplemented!(),
+            Comm::Message(msg) => {
+                buffer[0] = 7;
+                msg.serialize(&mut buffer[1..])?
+            }
 
-            Comm::RemoveInvitation(id) => unimplemented!(),
+            Comm::AddInvitation(id) => {
+                buffer[0] = 8;
+                crate::write_bytes_to_buffer(&mut buffer[1..], &id.to_ne_bytes());
+            }
 
-            Comm::AddFriend(id) => unimplemented!(),
+            Comm::RemoveInvitation(id) => {
+                buffer[0] = 9;
+                crate::write_bytes_to_buffer(&mut buffer[1..], &id.to_ne_bytes());
+            }
 
-            Comm::RemoveFriend(id) => unimplemented!(),
+            Comm::AddFriend(id) => {
+                buffer[0] = 10;
+                crate::write_bytes_to_buffer(&mut buffer[1..], &id.to_ne_bytes());
+            }
+
+            Comm::RemoveFriend(id) => {
+                buffer[0] = 11;
+                crate::write_bytes_to_buffer(&mut buffer[1..], &id.to_ne_bytes());
+            }
         }
 
         Ok(())
     }
 
-    /// Reads Comm from `buffer`. Returns `Self` on success or `Err(SerializeError)` otherwise.
+    /// Reads Comm from `buffer`. Returns `Self` on success or `SerializeError` otherwise.
     fn deserialize(buffer: &[u8]) -> Result<Self::Item, SerializeError> {
         match buffer[0] {
             // Comm::Connected
