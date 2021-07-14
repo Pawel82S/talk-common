@@ -36,19 +36,34 @@ pub const MIN_PASS_CHAR_LEN: usize = 4;
 pub const MAX_PASS_BYTE_LEN: usize = 30;
 
 /// Returns UserID from a slice of bytes.
+///
+/// # Panics
+/// This function will panic if slice is shorter than `USER_ID_SIZE`.
 // TODO: This function should propably return Result in case of parsing error.
 pub fn parse_id_from_bytes(bytes: &[u8]) -> UserID {
     u64::from_ne_bytes(bytes[..USER_ID_SIZE].try_into().unwrap())
 }
 
-/// Returns String from a slice of bytes or empty String if there was an error.
+/// Returns string from a slice of null terminated bytes (similiar to those in C language)
+/// or empty slice on error.
 // TODO: This function should propably return Result in case of parsing error.
 pub fn parse_string_from_bytes(bytes: &[u8]) -> &str {
     str::from_utf8(bytes.split(|&c| c == 0).next().unwrap_or_default()).unwrap_or_default()
 }
 
 /// Writes bytes to buffer one by one, and returns number of bytes written.
+///
+/// # Panics
+/// This function will panic if buffer is not big enough to fit all bytes.
 pub fn write_bytes_to_buffer(buffer: &mut [u8], bytes: &[u8]) -> usize {
+    if buffer.len() < bytes.len() {
+        panic!(
+            "Buffer ({}) too small to fit all bytes ({}).",
+            buffer.len(),
+            bytes.len()
+        );
+    }
+
     let mut index = 0;
     for byte in bytes {
         buffer[index] = *byte;
@@ -56,4 +71,19 @@ pub fn write_bytes_to_buffer(buffer: &mut [u8], bytes: &[u8]) -> usize {
     }
 
     index
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn string_from_bytes() {
+        let bytes = [
+            'H' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8, 0, 'W' as u8, 'o' as u8,
+        ];
+
+        let string = parse_string_from_bytes(&bytes);
+        assert_eq!(string, "Hello");
+    }
 }
